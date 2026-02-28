@@ -227,13 +227,17 @@ def render_report(
 
     # ---- CTA ----
     console.print(
-        "\U0001f4a1 [bold]Improve your score:[/bold]"
+        "💡 [bold]Next steps:[/bold]"
     )
     console.print(
-        "   [cyan]pip install useagentmesh[/cyan]"
+        "   [cyan]agentmesh init[/cyan]   # Connect to AgentMesh platform for runtime governance"
+    )
+    console.print()
+    console.print(
+        "   [dim]Unlock runtime DLP, Trust Score, Circuit Breaker, and cryptographic audit trails.[/dim]"
     )
     console.print(
-        "   [cyan]agentmesh init[/cyan]   # Add governance middleware to your project"
+        "   [dim]→ [bold white]https://useagentmesh.com/upgrade[/bold white][/dim]"
     )
     console.print()
 
