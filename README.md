@@ -88,7 +88,7 @@ Add to MCP settings:
 
 ### Benchmark Results
 
-All measurements taken with `time.perf_counter_ns()`, 10,000 iterations after 1,000 warmup. [Methodology & reproduction →](sdk/benchmarks/README.md)
+All measurements taken with `time.perf_counter_ns()`, 10,000 iterations after 1,000 warmup. [Methodology & reproduction →](benchmarks/README.md)
 
 **Policy Engine** (25 deterministic rules, zero LLMs):
 
