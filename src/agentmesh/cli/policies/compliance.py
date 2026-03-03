@@ -41,6 +41,9 @@ class COM001(BasePolicy):
     title = "No automatic logging (EU AI Act Art. 12)"
 
     def evaluate(self, bom: AgentBOM, metadata: ProjectMetadata) -> list[Finding]:
+        if not metadata.frameworks:
+            return []
+
         all_content = "\n".join(
             c for p, c in metadata.file_contents.items() if p.endswith(".py")
         )
@@ -100,6 +103,9 @@ class COM003(BasePolicy):
     title = "No technical documentation (EU AI Act Art. 11)"
 
     def evaluate(self, bom: AgentBOM, metadata: ProjectMetadata) -> list[Finding]:
+        if not metadata.frameworks:
+            return []
+
         root = metadata.root
         has_docs = False
 
@@ -157,6 +163,9 @@ class COM004(BasePolicy):
     title = "No risk management documentation (EU AI Act Art. 9)"
 
     def evaluate(self, bom: AgentBOM, metadata: ProjectMetadata) -> list[Finding]:
+        if not metadata.frameworks:
+            return []
+
         root = metadata.root
 
         risk_indicators = [

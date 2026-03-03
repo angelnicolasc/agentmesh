@@ -24,8 +24,8 @@ class ScanResult:
     metadata: ProjectMetadata
     bom: AgentBOM
     findings: list[Finding]
-    score: int
-    grade: str
+    score: int | None
+    grade: str | None
     scan_duration_ms: int
 
 
@@ -60,11 +60,15 @@ def run_scan(
     bom = generate_bom(metadata)
 
     # Phase 3: Evaluate all policies
-    findings = evaluate_all_policies(bom, metadata)
-
-    # Phase 4: Calculate score
-    score = calculate_score(findings)
-    grade = score_to_grade(score)
+    # Skip policy evaluation when no agent frameworks detected
+    if not metadata.frameworks and not bom.agents:
+        findings: list[Finding] = []
+        score = None
+        grade = None
+    else:
+        findings = evaluate_all_policies(bom, metadata)
+        score = calculate_score(findings)
+        grade = score_to_grade(score)
 
     duration_ms = int((time.monotonic() - start) * 1000)
 

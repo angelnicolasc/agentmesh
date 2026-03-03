@@ -137,91 +137,105 @@ def render_report(
     console.print()
 
     # ---- Governance Score ----
-    grade_color = _GRADE_COLORS.get(grade, "white")
-    bar = _render_score_bar(score)
+    if score is None:
+        # No agent frameworks detected — show warning instead of score
+        warn_text = Text()
+        warn_text.append("\u26a0 ", style="bold yellow")
+        warn_text.append("No agent frameworks detected in this project.\n", style="bold yellow")
+        warn_text.append("  Supported: LangGraph, CrewAI, AutoGen, LangChain, LlamaIndex, PydanticAI\n", style="dim")
+        warn_text.append("  If you have agents, check that your dependencies are installed.\n", style="dim")
+        warn_text.append("  Score: ", style="bold")
+        warn_text.append("N/A", style="bold yellow")
 
-    score_text = Text()
-    score_text.append("\U0001f4ca GOVERNANCE SCORE: ", style="bold")
-    score_text.append(f"{score}/100 ", style=f"bold {grade_color}")
-    score_text.append(f"[{grade}] ", style=f"bold {grade_color}")
-    score_text.append(bar, style=grade_color)
-    score_text.append(f" {score}%", style=f"dim {grade_color}")
+        console.print(Panel(warn_text, border_style="yellow"))
+    else:
+        grade_color = _GRADE_COLORS.get(grade, "white")
+        bar = _render_score_bar(score)
 
-    console.print(Panel(score_text, border_style=grade_color))
+        score_text = Text()
+        score_text.append("\U0001f4ca GOVERNANCE SCORE: ", style="bold")
+        score_text.append(f"{score}/100 ", style=f"bold {grade_color}")
+        score_text.append(f"[{grade}] ", style=f"bold {grade_color}")
+        score_text.append(bar, style=grade_color)
+        score_text.append(f" {score}%", style=f"dim {grade_color}")
+
+        console.print(Panel(score_text, border_style=grade_color))
+
     console.print()
 
     # ---- Findings by Severity ----
-    findings_by_severity: dict[str, list[Finding]] = {}
-    for f in findings:
-        findings_by_severity.setdefault(f.severity, []).append(f)
+    if score is not None:
+        findings_by_severity: dict[str, list[Finding]] = {}
+        for f in findings:
+            findings_by_severity.setdefault(f.severity, []).append(f)
 
-    for severity in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-        items = findings_by_severity.get(severity, [])
-        if not items:
-            continue
+        for severity in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            items = findings_by_severity.get(severity, [])
+            if not items:
+                continue
 
-        color = _SEVERITY_COLORS.get(severity, "white")
-        emoji = _SEVERITY_EMOJI.get(severity, "\u2022")
+            color = _SEVERITY_COLORS.get(severity, "white")
+            emoji = _SEVERITY_EMOJI.get(severity, "\u2022")
 
-        console.print(
-            f"{emoji} [bold {color}]{severity}[/bold {color}] ({len(items)} finding{'s' if len(items) != 1 else ''})",
-        )
-        console.print()
-
-        for f in items:
-            # Finding header
-            location = ""
-            if f.file_path:
-                location = f"  File: {f.file_path}"
-                if f.line_number:
-                    location += f":{f.line_number}"
-
-            finding_text = Text()
-            finding_text.append(f"{f.policy_id}", style=f"bold {color}")
-            finding_text.append(f" \u2502 {f.title}\n", style="bold")
-            finding_text.append(f"  {f.message}\n", style="white")
-            if location:
-                finding_text.append(f"{location}\n", style="dim")
-
-            if f.code_snippet:
-                finding_text.append(f"  Found: ", style="dim")
-                finding_text.append(f"{f.code_snippet}\n", style="dim italic")
-
-            console.print(finding_text, end="")
-
-            if f.fix_snippet:
-                console.print(f"  [bold green]Fix:[/bold green]")
-                console.print(Syntax(
-                    f.fix_snippet,
-                    "python",
-                    theme="monokai",
-                    line_numbers=False,
-                    padding=1,
-                ))
-
+            console.print(
+                f"{emoji} [bold {color}]{severity}[/bold {color}] ({len(items)} finding{'s' if len(items) != 1 else ''})",
+            )
             console.print()
 
-    # ---- Summary ----
-    counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
-    for f in findings:
-        if f.severity in counts:
-            counts[f.severity] += 1
+            for f in items:
+                # Finding header
+                location = ""
+                if f.file_path:
+                    location = f"  File: {f.file_path}"
+                    if f.line_number:
+                        location += f":{f.line_number}"
 
-    summary_parts = []
-    for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-        if counts[sev] > 0:
-            color = _SEVERITY_COLORS[sev]
-            summary_parts.append(f"[{color}]{counts[sev]} {sev.lower()}[/{color}]")
+                finding_text = Text()
+                finding_text.append(f"{f.policy_id}", style=f"bold {color}")
+                finding_text.append(f" \u2502 {f.title}\n", style="bold")
+                finding_text.append(f"  {f.message}\n", style="white")
+                if location:
+                    finding_text.append(f"{location}\n", style="dim")
 
-    if summary_parts:
-        console.print(f"\U0001f4c8 Summary: " + " \u2502 ".join(summary_parts))
-    else:
-        console.print("\u2705 [green]No findings! Your project has excellent governance.[/green]")
+                if f.code_snippet:
+                    finding_text.append(f"  Found: ", style="dim")
+                    finding_text.append(f"{f.code_snippet}\n", style="dim italic")
 
-    # Improvement hint
-    if score < 80 and counts["CRITICAL"] > 0:
-        potential = min(100, score + counts["CRITICAL"] * 15)
-        console.print(f"   Fix the {counts['CRITICAL']} critical issue{'s' if counts['CRITICAL'] != 1 else ''} to reach score {potential}+")
+                console.print(finding_text, end="")
+
+                if f.fix_snippet:
+                    console.print(f"  [bold green]Fix:[/bold green]")
+                    console.print(Syntax(
+                        f.fix_snippet,
+                        "python",
+                        theme="monokai",
+                        line_numbers=False,
+                        padding=1,
+                    ))
+
+                console.print()
+
+        # ---- Summary ----
+        counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+        for f in findings:
+            if f.severity in counts:
+                counts[f.severity] += 1
+
+        summary_parts = []
+        for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            if counts[sev] > 0:
+                color = _SEVERITY_COLORS[sev]
+                summary_parts.append(f"[{color}]{counts[sev]} {sev.lower()}[/{color}]")
+
+        if summary_parts:
+            console.print(f"\U0001f4c8 Summary: " + " \u2502 ".join(summary_parts))
+        else:
+            console.print("\u2705 [green]No findings! Your project has excellent governance.[/green]")
+
+        # Improvement hint
+        if score < 80 and counts["CRITICAL"] > 0:
+            potential = min(100, score + counts["CRITICAL"] * 15)
+            console.print(f"   Fix the {counts['CRITICAL']} critical issue{'s' if counts['CRITICAL'] != 1 else ''} to reach score {potential}+")
 
     console.print()
 

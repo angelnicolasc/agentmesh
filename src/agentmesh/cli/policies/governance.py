@@ -61,6 +61,9 @@ class GOV001(BasePolicy):
     title = "No audit logging configured"
 
     def evaluate(self, bom: AgentBOM, metadata: ProjectMetadata) -> list[Finding]:
+        if not metadata.frameworks:
+            return []
+
         all_content = "\n".join(
             c for p, c in metadata.file_contents.items() if p.endswith(".py")
         )

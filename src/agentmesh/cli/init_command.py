@@ -134,8 +134,8 @@ def init(api_key: str | None, framework: str | None, endpoint: str) -> None:
         import httpx
 
         with httpx.Client(timeout=10.0) as http:
-            resp = http.get(
-                f"{endpoint.rstrip('/')}/api/v1/stats",
+            resp = http.post(
+                f"{endpoint.rstrip('/')}/api/v1/auth/validate",
                 headers={"Authorization": f"Bearer {api_key}"},
             )
         if resp.status_code == 401:
