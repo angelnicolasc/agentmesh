@@ -32,12 +32,14 @@ class ScanResult:
 def run_scan(
     directory: str = ".",
     framework_filter: list[str] | None = None,
+    include_tests: bool = False,
 ) -> ScanResult:
     """Execute a full offline governance scan.
 
     Args:
         directory: Path to the project directory to scan.
         framework_filter: If provided, only detect these frameworks.
+        include_tests: If True, include tests/test/fixtures dirs in scan.
 
     Returns:
         ScanResult with all analysis data.
@@ -46,7 +48,7 @@ def run_scan(
 
     # Phase 1: Collect project files & detect frameworks
     root = Path(directory).resolve()
-    metadata = collect_project_files(root)
+    metadata = collect_project_files(root, include_tests=include_tests)
     metadata.frameworks = detect_frameworks(metadata)
 
     # Apply framework filter if specified

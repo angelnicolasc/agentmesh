@@ -90,13 +90,17 @@ class BP002(BasePolicy):
         if not bom.agents:
             return []
 
-        # Check if there are any test files
+        # Check if there are any test files (in scanned content or on filesystem)
         test_files = [
             p for p in metadata.file_contents.keys()
             if p.endswith(".py") and ("test_" in p or "_test.py" in p or p.startswith("tests/"))
         ]
+        # Also check filesystem — test dirs may be excluded from scan
+        test_dirs_exist = any(
+            (metadata.root / d).is_dir() for d in ("tests", "test")
+        )
 
-        if not test_files:
+        if not test_files and not test_dirs_exist:
             agent_names = ", ".join(a.name for a in bom.agents[:5])
             return [Finding(
                 policy_id=self.policy_id,

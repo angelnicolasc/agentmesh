@@ -14,10 +14,10 @@ if TYPE_CHECKING:
     from agentmesh.cli.scanner import ScanResult
 
 
-def _build_payload(result: ScanResult) -> dict:
+def _build_payload(result: ScanResult, project_name: str | None = None) -> dict:
     """Convert ScanResult into the upload payload."""
     return {
-        "project_name": result.metadata.root.name,
+        "project_name": project_name or result.metadata.root.name,
         "framework": result.bom.frameworks[0].name if result.bom.frameworks else "unknown",
         "framework_version": result.bom.frameworks[0].version if result.bom.frameworks else None,
         "scan_duration_ms": result.scan_duration_ms,
@@ -64,6 +64,7 @@ def upload_results(
     result: ScanResult,
     api_key: str | None = None,
     endpoint: str = "https://api.useagentmesh.com",
+    project_name: str | None = None,
 ) -> dict:
     """Upload scan results to the AgentMesh backend.
 
@@ -71,6 +72,7 @@ def upload_results(
         result: The ScanResult to upload.
         api_key: API key for authenticated upload. None for anonymous.
         endpoint: Backend URL.
+        project_name: Override project name (defaults to directory name).
 
     Returns:
         dict with ``scan_id`` and ``url`` keys.
@@ -79,7 +81,7 @@ def upload_results(
         httpx.HTTPStatusError: On 4xx/5xx responses.
         httpx.ConnectError: If backend is unreachable.
     """
-    payload = _build_payload(result)
+    payload = _build_payload(result, project_name=project_name)
 
     if api_key:
         url = f"{endpoint.rstrip('/')}/api/v1/scans"

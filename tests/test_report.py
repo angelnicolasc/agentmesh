@@ -12,7 +12,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class TestRenderReport:
-    def test_report_contains_sections(self):
+    def test_report_compact_default(self):
+        """Default (compact) report should contain key sections."""
         metadata = collect_project_files(FIXTURES / "crewai_basic")
         metadata.frameworks = detect_frameworks(metadata)
         bom = generate_bom(metadata)
@@ -29,7 +30,32 @@ class TestRenderReport:
             scan_duration_ms=1234,
         )
 
-        # Report should contain key sections
+        assert "AgentMesh Scan" in output
+        assert "Agent BOM" in output
+        assert "GOVERNANCE SCORE" in output
+        assert str(score) in output
+        assert "Top Issues" in output
+        assert "--details" in output
+
+    def test_report_detailed_contains_sections(self):
+        """Detailed report (--details) should contain full findings."""
+        metadata = collect_project_files(FIXTURES / "crewai_basic")
+        metadata.frameworks = detect_frameworks(metadata)
+        bom = generate_bom(metadata)
+        findings = evaluate_all_policies(bom, metadata)
+        score = calculate_score(findings)
+        grade = score_to_grade(score)
+
+        output = render_report_to_string(
+            bom=bom,
+            findings=findings,
+            score=score,
+            grade=grade,
+            metadata=metadata,
+            scan_duration_ms=1234,
+            details=True,
+        )
+
         assert "AgentMesh Scan Report" in output
         assert "AGENT BOM" in output
         assert "GOVERNANCE SCORE" in output
@@ -54,7 +80,7 @@ class TestRenderReport:
             scan_duration_ms=500,
         )
 
-        assert "AgentMesh Scan Report" in output
+        assert "AgentMesh Scan" in output
         assert str(score) in output
 
     def test_report_no_crash_empty(self):

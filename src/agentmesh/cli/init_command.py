@@ -125,7 +125,7 @@ def init(api_key: str | None, framework: str | None, endpoint: str) -> None:
             click.echo(click.style("  [auth]   ", fg="green") + "Using API key from AGENTMESH_API_KEY env var")
         else:
             click.echo()
-            click.echo("  Get a free API key at: " + click.style("https://app.useagentmesh.com/signup", fg="cyan", underline=True))
+            click.echo("  Get a free API key at: " + click.style("https://useagentmesh.com/signup", fg="cyan", underline=True))
             api_key = click.prompt("  Enter your API key", hide_input=False)
 
     # ---- Step 3: validate API key ----
@@ -139,7 +139,7 @@ def init(api_key: str | None, framework: str | None, endpoint: str) -> None:
                 headers={"Authorization": f"Bearer {api_key}"},
             )
         if resp.status_code == 401:
-            click.secho("  [error]  Invalid API key. Get one at https://app.useagentmesh.com/signup", fg="red")
+            click.secho("  [error]  Invalid API key. Get one at https://useagentmesh.com/signup", fg="red")
             raise SystemExit(1)
         if resp.status_code >= 400:
             click.secho(f"  [warn]   Could not validate key (HTTP {resp.status_code}). Continuing anyway.", fg="yellow")
@@ -250,5 +250,5 @@ def init(api_key: str | None, framework: str | None, endpoint: str) -> None:
 
     click.echo()
     click.echo("  3. Run " + click.style("agentmesh status", fg="cyan") + " to verify your setup")
-    click.echo("  4. View your dashboard at " + click.style("https://app.useagentmesh.com/dashboard", fg="cyan", underline=True))
+    click.echo("  4. View your dashboard at " + click.style("https://useagentmesh.com/dashboard", fg="cyan", underline=True))
     click.echo()

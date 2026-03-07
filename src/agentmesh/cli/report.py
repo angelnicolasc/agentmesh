@@ -50,7 +50,40 @@ _SEVERITY_EMOJI = {
 
 
 # ---------------------------------------------------------------------------
-# Score bar rendering
+# Risk tagline mapping (Item 7)
+# ---------------------------------------------------------------------------
+
+_RISK_TAGLINES: dict[str, str] = {
+    "SEC-005": "Your agents can execute arbitrary code.",
+    "SEC-001": "API keys are exposed in source code.",
+    "GOV-006": "Agents can rewrite their own instructions.",
+    "SEC-007": "Agents are vulnerable to prompt injection.",
+    "SEC-003": "Tools have unrestricted filesystem access.",
+    "SEC-004": "Tools have unrestricted network access.",
+    "MAG-001": "No spend caps \u2014 agents can consume unlimited resources.",
+    "ODD-001": "Agents operate without defined boundaries.",
+}
+
+_SEVERITY_RISK = {
+    "CRITICAL": ("\U0001f6a8", "CRITICAL", "red"),
+    "HIGH": ("\U0001f6a8", "HIGH", "dark_orange"),
+    "MEDIUM": ("\u26a0\ufe0f", "MODERATE", "yellow"),
+    "LOW": ("\u2139\ufe0f", "LOW", "blue"),
+}
+
+_CATEGORY_ORDER = [
+    ("Security", "\U0001f6e1\ufe0f"),
+    ("Governance", "\U0001f3db\ufe0f"),
+    ("Compliance", "\U0001f4dc"),
+    ("Operational", "\u2699\ufe0f"),
+    ("Magnitude", "\U0001f4cf"),
+    ("Identity", "\U0001f511"),
+    ("Best Practices", "\u2728"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
 # ---------------------------------------------------------------------------
 
 def _render_score_bar(score: int) -> str:
@@ -60,32 +93,187 @@ def _render_score_bar(score: int) -> str:
     return "\u2588" * filled + "\u2591" * empty
 
 
+def _generate_risk_tagline(findings: list[Finding]) -> tuple[str, str, str, str] | None:
+    """Return (emoji, risk_level, color, tagline) for the most critical finding."""
+    if not findings:
+        return None
+
+    severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+    top = min(findings, key=lambda f: severity_order.get(f.severity, 99))
+
+    tagline = _RISK_TAGLINES.get(top.policy_id)
+    if not tagline:
+        tagline = {
+            "CRITICAL": "Critical governance gaps detected.",
+            "HIGH": "Significant governance gaps need attention.",
+            "MEDIUM": "Moderate improvements recommended.",
+            "LOW": "Minor improvements suggested.",
+        }.get(top.severity, "Review findings above.")
+
+    info = _SEVERITY_RISK.get(top.severity, ("\u2022", "UNKNOWN", "white"))
+    return info[0], info[1], info[2], tagline
+
+
+def _render_score_section(
+    score: int | None,
+    grade: str | None,
+    findings: list[Finding],
+    console: Console,
+) -> None:
+    """Render governance score + risk tagline (shared by compact & detailed)."""
+    if score is None:
+        console.print("  \u26a0  [bold yellow]No agent frameworks detected \u2014 score: N/A[/bold yellow]")
+    else:
+        grade_color = _GRADE_COLORS.get(grade, "white")
+        bar = _render_score_bar(score)
+
+        score_text = Text()
+        score_text.append("\U0001f4ca GOVERNANCE SCORE: ", style="bold")
+        score_text.append(f"{score}/100 ", style=f"bold {grade_color}")
+        score_text.append(f"[{grade}] ", style=f"bold {grade_color}")
+        score_text.append(bar, style=grade_color)
+        score_text.append(f" {score}%", style=f"dim {grade_color}")
+
+        console.print(Panel(score_text, border_style=grade_color))
+
+    console.print()
+
+    # Risk tagline
+    if score is not None and findings:
+        risk = _generate_risk_tagline(findings)
+        if risk:
+            emoji, level, color, tagline = risk
+            console.print(
+                f"  {emoji} [bold {color}]Risk Level: {level}[/bold {color}]"
+                f" \u2014 {tagline}"
+            )
+            console.print()
+
+
+def _severity_counts(findings: list[Finding]) -> dict[str, int]:
+    counts: dict[str, int] = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    for f in findings:
+        if f.severity in counts:
+            counts[f.severity] += 1
+    return counts
+
+
 # ---------------------------------------------------------------------------
-# Main render function
+# Compact report (default)
 # ---------------------------------------------------------------------------
 
-def render_report(
+def _render_compact_report(
     bom: AgentBOM,
     findings: list[Finding],
-    score: int,
-    grade: str,
+    score: int | None,
+    grade: str | None,
     metadata: ProjectMetadata,
     scan_duration_ms: int,
-    console: Console | None = None,
+    console: Console,
 ) -> None:
-    """Render the full scan report to the terminal.
+    """Render a compact summary report (default mode)."""
+    console.print()
 
-    If *console* is None a new Console writing to stderr is created.
-    Pass a ``Console(file=StringIO())`` for testing.
-    """
-    if console is None:
-        console = Console(stderr=True)
+    # ---- Header (condensed) ----
+    framework_str = ", ".join(
+        f"{fw.name} {fw.version or ''}".strip() for fw in bom.frameworks
+    ) if bom.frameworks else "No framework detected"
 
+    header = Text()
+    header.append("\U0001f4c1 ", style="bold")
+    header.append(str(metadata.root.name), style="bold cyan")
+    header.append(f"  \u2502  {framework_str}", style="dim")
+    header.append(f"  \u2502  {scan_duration_ms / 1000:.1f}s", style="dim")
+
+    console.print(Panel(
+        header,
+        title="[bold cyan]AgentMesh Scan[/bold cyan]",
+        border_style="cyan",
+        padding=(0, 2),
+    ))
+    console.print()
+
+    # ---- BOM one-liner ----
+    console.print(
+        f"  \U0001f3d7\ufe0f  Agent BOM: "
+        f"[cyan]{len(bom.agents)}[/cyan] agents \u2502 "
+        f"[cyan]{len(bom.tools)}[/cyan] tools \u2502 "
+        f"[cyan]{len(bom.models)}[/cyan] models \u2502 "
+        f"[cyan]{len(bom.prompts)}[/cyan] prompts"
+    )
+    console.print()
+
+    # ---- Governance Score + Risk Tagline ----
+    _render_score_section(score, grade, findings, console)
+
+    # ---- Findings ----
+    if score is not None:
+        counts = _severity_counts(findings)
+
+        if any(counts.values()):
+            # Severity count table
+            parts = []
+            for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                if counts[sev] > 0:
+                    color = _SEVERITY_COLORS[sev]
+                    emoji = _SEVERITY_EMOJI[sev]
+                    parts.append(f"  {emoji} [{color}]{sev}[/{color}]  [bold]{counts[sev]}[/bold]")
+            console.print("\n".join(parts))
+            console.print()
+
+            # Top 3 issues
+            severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+            top = sorted(findings, key=lambda f: severity_order.get(f.severity, 99))[:3]
+            console.print("  [bold]Top Issues[/bold]")
+            for f in top:
+                color = _SEVERITY_COLORS.get(f.severity, "white")
+                file_hint = ""
+                if f.file_path:
+                    file_hint = f" [dim]({f.file_path})[/dim]"
+                console.print(
+                    f"  \u2022 [{color}]{f.policy_id}[/{color}]  {f.title}{file_hint}"
+                )
+            console.print()
+        else:
+            console.print("  \u2705 [green]No findings! Excellent governance.[/green]")
+            console.print()
+
+    # ---- CTA ----
+    console.print(
+        "\U0001f449 [bold cyan]agentmesh scan --details[/bold cyan]"
+        "    Full findings with code snippets and fix suggestions"
+    )
+    console.print(
+        "\U0001f449 [bold cyan]agentmesh fix --dry-run[/bold cyan]"
+        "     Preview auto-fixes without modifying files"
+    )
+    console.print()
+    console.print(
+        "   [dim]Unlock runtime governance at[/dim] "
+        "[bold white]https://useagentmesh.com/upgrade[/bold white]"
+    )
+    console.print()
+
+
+# ---------------------------------------------------------------------------
+# Detailed report (--details)
+# ---------------------------------------------------------------------------
+
+def _render_detailed_report(
+    bom: AgentBOM,
+    findings: list[Finding],
+    score: int | None,
+    grade: str | None,
+    metadata: ProjectMetadata,
+    scan_duration_ms: int,
+    console: Console,
+) -> None:
+    """Render the full detailed report (--details mode)."""
     console.print()
 
     # ---- Header Panel ----
     framework_str = ", ".join(
-        f"{fw.name} {fw.version or ''}" for fw in bom.frameworks
+        f"{fw.name} {fw.version or ''}".strip() for fw in bom.frameworks
     ) if bom.frameworks else "No framework detected"
 
     header = Text()
@@ -102,7 +290,6 @@ def render_report(
         border_style="cyan",
         padding=(1, 2),
     ))
-
     console.print()
 
     # ---- Agent BOM Table ----
@@ -136,54 +323,35 @@ def render_report(
     console.print(bom_table)
     console.print()
 
-    # ---- Governance Score ----
-    if score is None:
-        # No agent frameworks detected — show warning instead of score
-        warn_text = Text()
-        warn_text.append("\u26a0 ", style="bold yellow")
-        warn_text.append("No agent frameworks detected in this project.\n", style="bold yellow")
-        warn_text.append("  Supported: LangGraph, CrewAI, AutoGen, LangChain, LlamaIndex, PydanticAI\n", style="dim")
-        warn_text.append("  If you have agents, check that your dependencies are installed.\n", style="dim")
-        warn_text.append("  Score: ", style="bold")
-        warn_text.append("N/A", style="bold yellow")
+    # ---- Governance Score + Risk Tagline ----
+    _render_score_section(score, grade, findings, console)
 
-        console.print(Panel(warn_text, border_style="yellow"))
-    else:
-        grade_color = _GRADE_COLORS.get(grade, "white")
-        bar = _render_score_bar(score)
-
-        score_text = Text()
-        score_text.append("\U0001f4ca GOVERNANCE SCORE: ", style="bold")
-        score_text.append(f"{score}/100 ", style=f"bold {grade_color}")
-        score_text.append(f"[{grade}] ", style=f"bold {grade_color}")
-        score_text.append(bar, style=grade_color)
-        score_text.append(f" {score}%", style=f"dim {grade_color}")
-
-        console.print(Panel(score_text, border_style=grade_color))
-
-    console.print()
-
-    # ---- Findings by Severity ----
+    # ---- Findings by Category, then Severity (Item 6) ----
     if score is not None:
-        findings_by_severity: dict[str, list[Finding]] = {}
+        findings_by_cat: dict[str, list[Finding]] = {}
         for f in findings:
-            findings_by_severity.setdefault(f.severity, []).append(f)
+            findings_by_cat.setdefault(f.category, []).append(f)
 
-        for severity in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-            items = findings_by_severity.get(severity, [])
-            if not items:
+        severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+
+        for cat_name, cat_emoji in _CATEGORY_ORDER:
+            cat_findings = findings_by_cat.get(cat_name, [])
+            if not cat_findings:
                 continue
 
-            color = _SEVERITY_COLORS.get(severity, "white")
-            emoji = _SEVERITY_EMOJI.get(severity, "\u2022")
+            cat_findings.sort(key=lambda f: severity_order.get(f.severity, 99))
+            cat_count = len(cat_findings)
 
             console.print(
-                f"{emoji} [bold {color}]{severity}[/bold {color}] ({len(items)} finding{'s' if len(items) != 1 else ''})",
+                f"\n{cat_emoji} [bold underline]{cat_name.upper()}[/bold underline]"
+                f" ({cat_count} finding{'s' if cat_count != 1 else ''})"
             )
             console.print()
 
-            for f in items:
-                # Finding header
+            for f in cat_findings:
+                color = _SEVERITY_COLORS.get(f.severity, "white")
+                emoji = _SEVERITY_EMOJI.get(f.severity, "\u2022")
+
                 location = ""
                 if f.file_path:
                     location = f"  File: {f.file_path}"
@@ -191,20 +359,21 @@ def render_report(
                         location += f":{f.line_number}"
 
                 finding_text = Text()
+                finding_text.append(f"  {emoji} ", style=f"bold {color}")
                 finding_text.append(f"{f.policy_id}", style=f"bold {color}")
+                finding_text.append(f" [{f.severity}]", style=f"{color}")
                 finding_text.append(f" \u2502 {f.title}\n", style="bold")
-                finding_text.append(f"  {f.message}\n", style="white")
+                finding_text.append(f"    {f.message}\n", style="white")
                 if location:
-                    finding_text.append(f"{location}\n", style="dim")
-
+                    finding_text.append(f"  {location}\n", style="dim")
                 if f.code_snippet:
-                    finding_text.append(f"  Found: ", style="dim")
+                    finding_text.append(f"    Found: ", style="dim")
                     finding_text.append(f"{f.code_snippet}\n", style="dim italic")
 
                 console.print(finding_text, end="")
 
                 if f.fix_snippet:
-                    console.print(f"  [bold green]Fix:[/bold green]")
+                    console.print(f"    [bold green]Fix:[/bold green]")
                     console.print(Syntax(
                         f.fix_snippet,
                         "python",
@@ -216,10 +385,7 @@ def render_report(
                 console.print()
 
         # ---- Summary ----
-        counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
-        for f in findings:
-            if f.severity in counts:
-                counts[f.severity] += 1
+        counts = _severity_counts(findings)
 
         summary_parts = []
         for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
@@ -235,25 +401,65 @@ def render_report(
         # Improvement hint
         if score < 80 and counts["CRITICAL"] > 0:
             potential = min(100, score + counts["CRITICAL"] * 15)
-            console.print(f"   Fix the {counts['CRITICAL']} critical issue{'s' if counts['CRITICAL'] != 1 else ''} to reach score {potential}+")
+            console.print(
+                f"   Fix the {counts['CRITICAL']} critical issue"
+                f"{'s' if counts['CRITICAL'] != 1 else ''}"
+                f" to improve your score to ~{potential}"
+            )
 
     console.print()
 
     # ---- CTA ----
     console.print(
-        "💡 [bold]Next steps:[/bold]"
+        "\U0001f4a1 [bold]Next steps:[/bold]"
     )
     console.print(
-        "   [cyan]agentmesh init[/cyan]   # Connect to AgentMesh platform for runtime governance"
+        "   [cyan]agentmesh fix --dry-run[/cyan]  "
+        "# Preview auto-fixes for your findings"
+    )
+    console.print(
+        "   [cyan]agentmesh init[/cyan]           "
+        "# Connect to AgentMesh for runtime governance"
     )
     console.print()
     console.print(
         "   [dim]Unlock runtime DLP, Trust Score, Circuit Breaker, and cryptographic audit trails.[/dim]"
     )
     console.print(
-        "   [dim]→ [bold white]https://useagentmesh.com/upgrade[/bold white][/dim]"
+        "   [dim]\u2192 [bold white]https://useagentmesh.com/upgrade[/bold white][/dim]"
     )
     console.print()
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def render_report(
+    bom: AgentBOM,
+    findings: list[Finding],
+    score: int,
+    grade: str,
+    metadata: ProjectMetadata,
+    scan_duration_ms: int,
+    console: Console | None = None,
+    details: bool = False,
+) -> None:
+    """Render the scan report to the terminal.
+
+    If *console* is None a new Console writing to stderr is created.
+    Pass a ``Console(file=StringIO())`` for testing.
+
+    When *details* is False (default), renders a compact summary.
+    When *details* is True, renders the full report with code snippets.
+    """
+    if console is None:
+        console = Console(stderr=True)
+
+    if details:
+        _render_detailed_report(bom, findings, score, grade, metadata, scan_duration_ms, console)
+    else:
+        _render_compact_report(bom, findings, score, grade, metadata, scan_duration_ms, console)
 
 
 def render_report_to_string(
@@ -263,9 +469,10 @@ def render_report_to_string(
     grade: str,
     metadata: ProjectMetadata,
     scan_duration_ms: int,
+    details: bool = False,
 ) -> str:
     """Render the report to a string (for testing)."""
     buf = StringIO()
     console = Console(file=buf, force_terminal=True, width=100)
-    render_report(bom, findings, score, grade, metadata, scan_duration_ms, console=console)
+    render_report(bom, findings, score, grade, metadata, scan_duration_ms, console=console, details=details)
     return buf.getvalue()

@@ -379,6 +379,37 @@ class SEC006(BasePolicy):
                     )
 
                     if not has_annotations and not has_validation:
+                        # Extract real parameter names from AST
+                        real_params: list[str] = []
+                        raw_names: list[str] = []
+                        for arg in node.args.args:
+                            if arg.arg == "self":
+                                continue
+                            raw_names.append(arg.arg)
+                            if arg.annotation is not None:
+                                try:
+                                    ann = ast.unparse(arg.annotation)
+                                except (AttributeError, ValueError):
+                                    ann = "str"
+                                real_params.append(f"{arg.arg}: {ann}")
+                            else:
+                                real_params.append(f"{arg.arg}: str")
+
+                        param_str = ", ".join(real_params) if real_params else "query: str"
+                        code_params = ", ".join(raw_names) if raw_names else "..."
+
+                        # Build per-parameter validation (cap at 3)
+                        validation_lines: list[str] = []
+                        for pname in raw_names[:3]:
+                            validation_lines.append(
+                                f"    if not {pname}:\n"
+                                f'        raise ValueError("{pname} is required")'
+                            )
+                        validation_block = "\n".join(validation_lines) if validation_lines else (
+                            '    if not query:\n'
+                            '        raise ValueError("query is required")'
+                        )
+
                         findings.append(Finding(
                             policy_id=self.policy_id,
                             category=self.category,
@@ -387,8 +418,13 @@ class SEC006(BasePolicy):
                             message=f'Tool "{tool.name}" has no type annotations or input validation',
                             file_path=tool.file_path,
                             line_number=tool.line_number,
-                            code_snippet=f"def {tool.name}(...)  # No type hints or validation",
-                            fix_snippet=f'@tool\ndef {tool.name}(query: str, limit: int = 10) -> str:\n    """Add type hints and validate inputs."""\n    if not query or len(query) > 1000:\n        raise ValueError("Invalid query")',
+                            code_snippet=f"def {tool.name}({code_params})  # No type hints or validation",
+                            fix_snippet=(
+                                f"@tool\n"
+                                f"def {tool.name}({param_str}) -> str:\n"
+                                f'    """Add type hints and validate inputs."""\n'
+                                f"{validation_block}"
+                            ),
                         ))
 
         return findings

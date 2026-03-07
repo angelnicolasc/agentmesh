@@ -41,11 +41,13 @@ class ProjectMetadata:
 
 _MAX_FILES = 200
 _MAX_FILE_SIZE = 100_000  # 100 KB
+_TEST_DIRS = frozenset({"tests", "test", "fixtures"})
 _SKIP_DIRS = frozenset({
     "venv", ".venv", "env", ".env", "node_modules", "__pycache__",
     ".git", ".mypy_cache", ".pytest_cache", ".tox", "dist", "build",
     "egg-info", ".eggs", ".ruff_cache", ".hypothesis", "htmlcov",
     "site-packages", ".nox",
+    "tests", "test", "fixtures",
 })
 
 _CONFIG_FILES = (
@@ -89,12 +91,12 @@ _FRAMEWORK_IMPORTS: dict[str, str] = {
 # File collection
 # ---------------------------------------------------------------------------
 
-def _should_skip(parts: tuple[str, ...]) -> bool:
+def _should_skip(parts: tuple[str, ...], skip_dirs: frozenset[str] = _SKIP_DIRS) -> bool:
     """Check if a path should be skipped based on directory names."""
-    return any(p.startswith(".") or p in _SKIP_DIRS for p in parts)
+    return any(p.startswith(".") or p in skip_dirs for p in parts)
 
 
-def _safe_rglob(root: Path, pattern: str):
+def _safe_rglob(root: Path, pattern: str, skip_dirs: frozenset[str] = _SKIP_DIRS):
     """Walk directories safely, skipping any that raise OS errors.
 
     This is the fallback when ``root.rglob()`` crashes due to Windows
@@ -105,7 +107,7 @@ def _safe_rglob(root: Path, pattern: str):
     suffix = pattern.lstrip("*")  # "*.py" -> ".py"
     for dirpath, dirnames, filenames in os.walk(root, onerror=lambda _: None):
         # Skip known junk directories in-place (prevents descent)
-        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS and not d.startswith(".")]
+        dirnames[:] = [d for d in dirnames if d not in skip_dirs and not d.startswith(".")]
         for fname in sorted(filenames):
             if fname.endswith(suffix):
                 try:
@@ -114,7 +116,7 @@ def _safe_rglob(root: Path, pattern: str):
                     continue
 
 
-def collect_project_files(directory: Path) -> ProjectMetadata:
+def collect_project_files(directory: Path, *, include_tests: bool = False) -> ProjectMetadata:
     """Walk directory and collect Python files + config files.
 
     Returns a populated ProjectMetadata with file contents loaded.
@@ -122,6 +124,9 @@ def collect_project_files(directory: Path) -> ProjectMetadata:
     root = directory.resolve()
     metadata = ProjectMetadata(root=root)
     count = 0
+
+    # Compute effective skip dirs (include test dirs when requested)
+    effective_skip = _SKIP_DIRS - _TEST_DIRS if include_tests else _SKIP_DIRS
 
     # Collect Python files
     # Use a helper to safely walk — Windows can crash on paths > 260 chars
@@ -131,11 +136,11 @@ def collect_project_files(directory: Path) -> ProjectMetadata:
         py_files = sorted(root.rglob("*.py"))
     except (FileNotFoundError, PermissionError, OSError):
         # Fallback: manual walk that skips broken directories
-        py_files = list(_safe_rglob(root, "*.py"))
+        py_files = list(_safe_rglob(root, "*.py", skip_dirs=effective_skip))
 
     for py_file in py_files:
         rel_parts = py_file.relative_to(root).parts
-        if _should_skip(rel_parts):
+        if _should_skip(rel_parts, skip_dirs=effective_skip):
             continue
         try:
             size = py_file.stat().st_size
@@ -182,6 +187,38 @@ def collect_project_files(directory: Path) -> ProjectMetadata:
                     metadata.config_files[name] = content
             except OSError:
                 continue
+
+    # Collect CI config files for CI-001 policy rule
+    _ci_configs: list[tuple[Path, str]] = []
+
+    # GitHub Actions workflows
+    gh_workflows = root / ".github" / "workflows"
+    if gh_workflows.is_dir():
+        for yml in sorted(gh_workflows.glob("*.yml")):
+            _ci_configs.append((yml, f".github/workflows/{yml.name}"))
+        for yml in sorted(gh_workflows.glob("*.yaml")):
+            _ci_configs.append((yml, f".github/workflows/{yml.name}"))
+
+    # GitLab CI
+    gitlab_ci = root / ".gitlab-ci.yml"
+    if gitlab_ci.is_file():
+        _ci_configs.append((gitlab_ci, ".gitlab-ci.yml"))
+
+    # pre-commit config
+    precommit = root / ".pre-commit-config.yaml"
+    if precommit.is_file():
+        _ci_configs.append((precommit, ".pre-commit-config.yaml"))
+
+    for ci_path, ci_key in _ci_configs:
+        if ci_key in metadata.config_files:
+            continue
+        try:
+            size = ci_path.stat().st_size
+            if 0 < size < _MAX_FILE_SIZE:
+                content = ci_path.read_text(encoding="utf-8", errors="ignore")
+                metadata.config_files[ci_key] = content
+        except OSError:
+            continue
 
     # Parse dependencies
     metadata.dependencies = _extract_dependencies(metadata.config_files)

@@ -1,6 +1,6 @@
 """Policy evaluation engine for `agentmesh scan`.
 
-Evaluates project against 33 built-in governance, security,
+Evaluates project against 34 built-in governance, security,
 compliance, operational, magnitude, identity, and best-practice policy rules.
 """
 

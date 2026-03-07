@@ -17,12 +17,14 @@ def cli() -> None:
 def _register_commands() -> None:
     from agentmesh.cli.init_command import init
     from agentmesh.cli.scan_command import scan
+    from agentmesh.cli.fix_command import fix
     from agentmesh.cli.serve_command import serve
     from agentmesh.cli.status_command import status
     from agentmesh.cli.verify_command import verify
 
     cli.add_command(init)
     cli.add_command(scan)
+    cli.add_command(fix)
     cli.add_command(serve)
     cli.add_command(status)
     cli.add_command(verify)
