@@ -233,7 +233,7 @@ class AgentMeshClient:
 
     async def check_quota(self) -> dict:
         """Check the tenant's current usage quota."""
-        return await self._request("GET", f"/api/v1/billing/usage/{self._tenant_id}")
+        return await self._request("GET", "/api/v1/billing/subscription")
 
     async def validate_key(self) -> dict:
         """Validate the API key and return tenant info."""
@@ -294,7 +294,7 @@ class AgentMeshClient:
 
     def check_quota_sync(self) -> dict:
         """Sync wrapper for check_quota."""
-        return self._request_sync("GET", f"/api/v1/billing/usage/{self._tenant_id}")
+        return self._request_sync("GET", "/api/v1/billing/subscription")
 
     def validate_key_sync(self) -> dict:
         """Sync wrapper for validate_key."""

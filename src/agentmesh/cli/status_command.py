@@ -70,9 +70,9 @@ def status(config_path: str) -> None:
     try:
         quota = client.check_quota_sync()
         if isinstance(quota, dict):
-            used = quota.get("used", "?")
-            limit = quota.get("limit", "?")
-            plan = quota.get("plan", "?")
+            plan = quota.get("plan", "free")
+            used = quota.get("used_this_period", 0)
+            limit = quota.get("monthly_quota", 10000)
             click.echo(click.style("  [quota]  ", fg="green") + f"Plan: {plan} | Usage: {used}/{limit}")
     except AgentMeshError:
         click.echo(click.style("  [quota]  ", fg="yellow") + "Could not fetch quota info")

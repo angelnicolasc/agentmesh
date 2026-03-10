@@ -1,0 +1,17 @@
+# AgentMesh pre-commit hook definition
+#
+# Users add this to their .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/useagentmesh/agentmesh
+#       rev: v0.1.0
+#       hooks:
+#         - id: agentmesh-scan
+
+- id: agentmesh-scan
+  name: AgentMesh Governance Scan
+  entry: agentmesh scan . --fail-on critical
+  language: python
+  additional_dependencies: ["useagentmesh"]
+  pass_filenames: false
+  always_run: true

@@ -167,28 +167,19 @@ def init(api_key: str | None, framework: str | None, endpoint: str) -> None:
         "api_key": api_key,
         "endpoint": endpoint,
         "framework": framework,
-        "tools": {
-            "audit_log_action": True,
-            "verify_agent_identity": True,
-            "evaluate_policy": True,
-        },
-        "guardrails": {
-            "prompt_injection_detection": True,
-            "dlp_scanning": False,
-        },
-        "trust": {
-            "enabled": True,
-            "decay_half_life_hours": 168,
-            "circuit_breaker_threshold": 3,
-        },
-        "bft": {
-            "enabled": False,
-            "quorum_size": 4,
-        },
     }
     with open(config_path, "w") as f:
         yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
     click.echo(click.style("  [config] ", fg="green") + f"Created {_CONFIG_FILENAME}")
+
+    # ---- Step 5b: protect config from accidental git commit ----
+    gitignore = Path(".gitignore")
+    if gitignore.exists():
+        gi_content = gitignore.read_text()
+        if ".agentmesh.yaml" not in gi_content:
+            with open(gitignore, "a") as gi:
+                gi.write("\n# AgentMesh config (contains API key)\n.agentmesh.yaml\n")
+            click.echo(click.style("  [git]    ", fg="green") + "Added .agentmesh.yaml to .gitignore")
 
     # ---- Step 6: generate middleware file ----
     filename, template = _TEMPLATES[framework]

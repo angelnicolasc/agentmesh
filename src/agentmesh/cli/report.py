@@ -123,6 +123,7 @@ def _render_score_section(
     """Render governance score + risk tagline (shared by compact & detailed)."""
     if score is None:
         console.print("  \u26a0  [bold yellow]No agent frameworks detected \u2014 score: N/A[/bold yellow]")
+        console.print("     [dim]Try scanning a Python project that uses CrewAI, LangGraph, or AutoGen.[/dim]")
     else:
         grade_color = _GRADE_COLORS.get(grade, "white")
         bar = _render_score_bar(score)
@@ -249,8 +250,11 @@ def _render_compact_report(
     )
     console.print()
     console.print(
-        "   [dim]Unlock runtime governance at[/dim] "
-        "[bold white]https://useagentmesh.com/upgrade[/bold white]"
+        "   [cyan]agentmesh init[/cyan]              "
+        "Connect to AgentMesh for runtime governance"
+    )
+    console.print(
+        "   [dim]https://useagentmesh.com[/dim]"
     )
     console.print()
 
