@@ -4,7 +4,7 @@ Deterministic governance middleware for AI agents. No LLM in the evaluation loop
 
 [![PyPI](https://img.shields.io/pypi/v/useagentmesh)](https://pypi.org/project/useagentmesh/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-798%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-819%20passing-brightgreen.svg)]()
 [![License: BUSL-1.1](https://img.shields.io/badge/license-BUSL--1.1-blue.svg)](LICENSE)
 [![Policy Eval](https://img.shields.io/badge/policy%20eval-<2ms-brightgreen.svg)]()
 
@@ -72,6 +72,37 @@ agentmesh scan --diff HEAD~1        # Only scan changed files
 agentmesh scan --details            # Full report with code snippets and fixes
 ```
 ---
+## Configure Everything From One File
+
+After scanning, AgentMesh generates `.agentmesh.yaml` pre-populated 
+with your real agents and tools. Edit it, push it — done.
+```bash
+agentmesh scan .      # detects your agents, tools, models
+agentmesh init        # generates .agentmesh.yaml with your real tools
+agentmesh push        # syncs policies to the enforcement engine
+```
+```yaml
+# .agentmesh.yaml — generated with YOUR tools pre-filled
+policies:
+  odd:
+    forbidden_tools:
+      - code_runner    # ← detected in tools/runner.py, flagged CRITICAL
+    enforcement_mode: enforce
+
+  dlp:
+    mode: enforce      # blocks CRITICAL PII before it leaves your agent
+```
+
+Then one line in your code:
+```python
+from agentmesh import govern
+crew = govern(crew)    # every tool call now passes through enforcement
+```
+Every tool call is evaluated before executing. If a tool is forbidden or carries PII — blocked before it runs, not logged after.
+
+
+---
+
 
 ## What the Scan Detects
 
@@ -250,6 +281,36 @@ The EU AI Act applies to high-risk AI systems starting August 2026. AgentMesh ma
 | Art. 14 | Human oversight | COM-002, GOV-004 |
 
 The runtime platform generates exportable compliance reports for these articles.
+
+---
+## Roadmap
+
+AgentMesh today covers the two fundamentals: find governance 
+gaps before production does, and enforce policies on every 
+action before it executes.
+
+What comes next, in order:
+
+**Deeper runtime control** — per-tool circuit breakers, 
+programmable hooks at every lifecycle event, human-in-the-loop 
+checkpoints for high-risk decisions, cryptographic intent 
+verification between decision and execution.
+
+**Collective intelligence** — when one agent detects a threat, 
+every agent benefits. Anonymous, opt-in, and integrated directly 
+into the enforcement pipeline. Not a separate product — part of 
+the same governance layer.
+
+**Full observability** — interactive execution graphs, cost-per-outcome 
+tracking, drift detection, and SIEM integrations. See exactly what 
+your agents did, why, and what it cost.
+
+**Multi-agent security** — secure agent-to-agent protocols, 
+topology mapping, chaos engineering for resilience testing, 
+and shadow AI discovery for what you didn't know was running.
+
+---
+**AgentMesh is actively developed and moving fast.** If you're building with AI agents, [watch the repo](https://github.com/angelnicolasc/agentmesh) — there's more coming.
 
 ---
 
