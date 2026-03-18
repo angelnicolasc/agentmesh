@@ -372,6 +372,109 @@ Runtime platform generates exportable compliance reports for these articles.
 
 ---
 
+## Autopilot Mode
+
+Zero-config governance. One command, smart defaults from your scan.
+
+```bash
+agentmesh init                     # autopilot (default) — audit-first
+agentmesh init --balanced          # enforcement active with escape hatches
+agentmesh init --strict            # maximum governance for enterprise
+agentmesh init --manual            # full YAML with all sections
+agentmesh init --template fintech  # start from industry template
+```
+
+Autopilot analyzes your project and generates a `.agentmesh.yaml` pre-configured with:
+
+- **ODD**: Each agent locked to its discovered tools
+- **DLP**: Audit mode (logging PII, not blocking yet)
+- **Circuit Breaker**: Threshold 5 failures / 60s window
+- **HITL**: Active for write/execute tools (auto-allow on timeout)
+- **FinOps**: Cost tracking enabled
+
+Everything starts in audit mode. When you're ready for enforcement:
+
+```bash
+agentmesh upgrade --balanced    # DLP enforce, ODD enforce, HITL reject on timeout
+agentmesh upgrade --strict      # + intent verification, cryptographic audit, magnitude enforce
+```
+
+---
+
+## Proxy Mode
+
+Out-of-process LLM API governance. Intercepts every LLM call at the network layer — no SDK changes needed.
+
+```bash
+pip install useagentmesh[proxy]
+agentmesh proxy start --port 8080
+```
+
+Point your LLM client at `http://localhost:8080` instead of the provider API. Every request passes through the full governance pipeline (ODD, DLP, Magnitude, HITL) before reaching the upstream LLM.
+
+```python
+import openai
+client = openai.OpenAI(base_url="http://localhost:8080/v1")
+# All calls now governed by .agentmesh.yaml policies
+```
+
+Docker and Kubernetes:
+
+```bash
+# Docker
+docker compose -f docker-compose.agentmesh.yml up
+
+# Kubernetes (Helm)
+helm install agentmesh-proxy deploy/helm/agentmesh-proxy
+```
+
+Response headers include governance metadata:
+- `X-AgentMesh-Proxy: true`
+- `X-AgentMesh-Latency-Ms: 2.3`
+- `X-AgentMesh-Cost-USD: 0.0042`
+
+CLI management:
+
+```bash
+agentmesh proxy start --port 8080 --daemon   # background mode
+agentmesh proxy status                        # check health
+agentmesh proxy stop                          # stop daemon
+```
+
+---
+
+## Policy Templates
+
+Industry-specific governance presets. Start from a template, override what you need.
+
+```bash
+agentmesh templates list              # show available templates
+agentmesh templates show fintech      # preview a template
+agentmesh init --template healthcare  # init with template
+```
+
+Available templates:
+
+| Template | Focus |
+|----------|-------|
+| **base** | Sensible defaults for any project |
+| **fintech** | PCI compliance, spend caps, strict DLP |
+| **healthcare** | HIPAA alignment, PHI detection, audit trails |
+| **eu-ai-act** | EU AI Act Articles 9, 11, 12, 14 compliance |
+| **startup** | Lightweight audit-first governance |
+| **enterprise** | Maximum governance, intent verification, A2A security |
+
+Templates support inheritance via `extends:`:
+
+```yaml
+# .agentmesh.yaml
+extends: fintech
+governance_level: balanced
+# Your overrides here — template provides the base
+```
+
+---
+
 ## Roadmap
  
 AgentMesh today covers the full governance stack: static analysis,

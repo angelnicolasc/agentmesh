@@ -1,6 +1,6 @@
 """AgentMesh SDK — The Trust Layer for AI Agents."""
 
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 
 from agentmesh.client import AgentMeshClient
 from agentmesh.config import AgentMeshConfig
@@ -22,7 +22,23 @@ __all__ = [
     "with_langgraph_compliance",
     "with_autogen_compliance",
     "govern",
+    "test_mode",
+    "MockHITLResolver",
 ]
+
+
+def test_mode(**kwargs):
+    """Context manager for testing governed agents without blocking CI."""
+    from agentmesh.testing import test_mode as _test_mode
+
+    return _test_mode(**kwargs)
+
+
+def MockHITLResolver(**kwargs):  # noqa: N802 — matches class name for convenience
+    """Pluggable HITL resolver for per-tool test rules."""
+    from agentmesh.testing import MockHITLResolver as _Cls
+
+    return _Cls(**kwargs)
 
 
 def with_compliance(crew, **kwargs):

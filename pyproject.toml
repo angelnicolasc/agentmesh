@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "useagentmesh"
-version = "2.0.1"
+version = "2.1.0"
 description = "The Python Governance Platform for AI Agents — 60 policy rules, per-tool interception, HITL, FinOps, A2A."
 readme = "README.md"
 license = "BUSL-1.1"
@@ -36,12 +36,14 @@ dependencies = [
 crewai = ["crewai>=0.70.0"]
 langgraph = ["langgraph>=0.2.0"]
 autogen = ["pyautogen>=0.4.0"]
+proxy = ["fastapi>=0.110.0", "uvicorn>=0.29.0"]
 all = ["crewai>=0.70.0", "langgraph>=0.2.0", "pyautogen>=0.4.0"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24.0",
     "respx>=0.22.0",
     "coverage>=7.0",
+    "hypothesis>=6.100.0",
 ]
 
 [project.scripts]

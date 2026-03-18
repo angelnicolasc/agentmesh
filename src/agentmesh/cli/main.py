@@ -24,6 +24,9 @@ def _register_commands() -> None:
     from agentmesh.cli.history_command import history
     from agentmesh.cli.diff_command import diff
     from agentmesh.cli.rollback_command import rollback
+    from agentmesh.cli.upgrade_command import upgrade
+    from agentmesh.cli.templates_command import templates
+    from agentmesh.cli.proxy_command import proxy
 
     cli.add_command(init)
     cli.add_command(scan)
@@ -34,6 +37,9 @@ def _register_commands() -> None:
     cli.add_command(history)
     cli.add_command(diff)
     cli.add_command(rollback)
+    cli.add_command(upgrade)
+    cli.add_command(templates)
+    cli.add_command(proxy)
 
 
 _register_commands()

@@ -293,6 +293,8 @@ class ChaosConfig(BaseModel):
 
 class AgentMeshConfig(BaseModel):
     version: str = "1.0"
+    governance_level: str = "custom"  # autopilot | balanced | strict | custom
+    extends: str | None = None  # policy template inheritance (e.g. "fintech")
     tenant_id: str
     api_key_env: str = "AGENTMESH_API_KEY"
     api_key: str | None = None
@@ -325,7 +327,7 @@ class AgentMeshConfig(BaseModel):
 
     @classmethod
     def load(cls, path: str = ".agentmesh.yaml") -> AgentMeshConfig:
-        """Load config from a YAML file."""
+        """Load config from a YAML file, resolving template inheritance."""
         config_path = Path(path)
         if not config_path.exists():
             raise ConfigError(
@@ -340,6 +342,13 @@ class AgentMeshConfig(BaseModel):
 
         if not isinstance(data, dict):
             raise ConfigError(f"Expected a YAML mapping in {path}, got {type(data).__name__}")
+
+        # Resolve template inheritance if extends: is set
+        if "extends" in data and data["extends"]:
+            from agentmesh.templates import load_template, deep_merge
+            template_name = data["extends"]
+            template_data = load_template(template_name)
+            data = deep_merge(template_data, data)
 
         return cls.model_validate(data)
 

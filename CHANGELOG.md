@@ -4,6 +4,26 @@ All notable changes to AgentMesh are documented here.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [2.1.0] - 2026-03-18
+
+### Added
+- **Autopilot Mode** — `agentmesh init` now generates smart defaults from scan results (audit-first). Governance levels: `--autopilot` (default), `--balanced`, `--strict`, `--manual`
+- **`agentmesh upgrade`** command — upgrade governance level in-place (`--balanced`, `--strict`)
+- **Proxy Mode** — out-of-process LLM API governance proxy. Intercepts every LLM call at the network layer with full governance pipeline (ODD, DLP, Magnitude, HITL). `agentmesh proxy start/stop/status`
+- **Policy Templates** — 6 industry-specific governance presets: `base`, `fintech`, `healthcare`, `eu-ai-act`, `startup`, `enterprise`. Template inheritance via `extends:` in config. `agentmesh templates list/show`
+- **Property-Based Testing** — 28 Hypothesis tests covering scoring invariants, grade monotonicity, deep merge, ODD/DLP/Magnitude enforcement
+- **Helm Chart** — Kubernetes deployment for the governance proxy (`deploy/helm/agentmesh-proxy/`)
+- `governance_level` config field — `autopilot | balanced | strict | custom`
+- `extends` config field — template inheritance (e.g. `extends: fintech`)
+- `test_mode()` context manager and `MockHITLResolver` for testing governed agents in CI
+- Docker Compose file for proxy deployment
+
+### Changed
+- `agentmesh init` default mode is now autopilot (was manual)
+- Config `load()` now resolves template inheritance automatically
+
+---
+
 ## [2.0.1] - 2026-03-17
 
 ### Fixed

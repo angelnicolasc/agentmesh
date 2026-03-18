@@ -22,7 +22,6 @@ class TestInitDetection:
         monkeypatch.chdir(tmp_path)
         (tmp_path / "crewai.yaml").touch()
 
-        # Mock the validation HTTP call
         import respx
         import httpx
         with respx.mock:
@@ -83,9 +82,11 @@ class TestInitGeneratesFiles:
         config = yaml.safe_load(config_path.read_text())
         assert config["tenant_id"] == "myorg"
         assert config["framework"] == "crewai"
-        assert config.get("audit", {}).get("enabled") is True
+        # v2.0: autopilot generates governance_level and dlp
+        assert config["governance_level"] == "autopilot"
+        assert config["dlp"]["mode"] == "audit"
 
-    def test_generates_crewai_config(self, runner, tmp_path, monkeypatch):
+    def test_generates_autopilot_by_default(self, runner, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
         import respx
@@ -94,13 +95,17 @@ class TestInitGeneratesFiles:
             respx.get("https://api.useagentmesh.com/api/v1/stats").mock(
                 return_value=httpx.Response(200, json={"ok": True})
             )
-            result = runner.invoke(init, ["--api-key", "am_live_t_s", "--framework", "crewai"])
+            result = runner.invoke(init, ["--api-key", "am_live_t_s"])
 
         assert result.exit_code == 0
         config_path = tmp_path / ".agentmesh.yaml"
         assert config_path.exists()
 
-    def test_generates_generic_config(self, runner, tmp_path, monkeypatch):
+        config = yaml.safe_load(config_path.read_text())
+        assert config["governance_level"] == "autopilot"
+        assert "audit" in result.output.lower() or "autopilot" in result.output.lower()
+
+    def test_generates_manual_config(self, runner, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
         import respx
@@ -109,11 +114,47 @@ class TestInitGeneratesFiles:
             respx.get("https://api.useagentmesh.com/api/v1/stats").mock(
                 return_value=httpx.Response(200, json={"ok": True})
             )
-            result = runner.invoke(init, ["--api-key", "am_live_t_s", "--framework", "generic"])
+            result = runner.invoke(init, ["--api-key", "am_live_t_s", "--manual"])
 
         assert result.exit_code == 0
         config_path = tmp_path / ".agentmesh.yaml"
         assert config_path.exists()
+
+        config = yaml.safe_load(config_path.read_text())
+        assert config["governance_level"] == "custom"
+
+    def test_generates_balanced_config(self, runner, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+
+        import respx
+        import httpx
+        with respx.mock:
+            respx.get("https://api.useagentmesh.com/api/v1/stats").mock(
+                return_value=httpx.Response(200, json={"ok": True})
+            )
+            result = runner.invoke(init, ["--api-key", "am_live_t_s", "--balanced"])
+
+        assert result.exit_code == 0
+        config = yaml.safe_load((tmp_path / ".agentmesh.yaml").read_text())
+        assert config["governance_level"] == "balanced"
+        assert config["dlp"]["mode"] == "enforce"
+
+    def test_generates_strict_config(self, runner, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+
+        import respx
+        import httpx
+        with respx.mock:
+            respx.get("https://api.useagentmesh.com/api/v1/stats").mock(
+                return_value=httpx.Response(200, json={"ok": True})
+            )
+            result = runner.invoke(init, ["--api-key", "am_live_t_s", "--strict"])
+
+        assert result.exit_code == 0
+        config = yaml.safe_load((tmp_path / ".agentmesh.yaml").read_text())
+        assert config["governance_level"] == "strict"
+        assert config["dlp"]["mode"] == "enforce"
+        assert config.get("intent_verification", {}).get("mode") == "enforce"
 
 
 class TestInitAPIValidation:
@@ -157,11 +198,10 @@ class TestInitOverwrite:
             respx.get("https://api.useagentmesh.com/api/v1/stats").mock(
                 return_value=httpx.Response(200, json={"ok": True})
             )
-            # Say no to overwrite
-            result = runner.invoke(init, ["--api-key", "am_live_t_s"], input="n\n")
+            # Say skip to overwrite
+            result = runner.invoke(init, ["--api-key", "am_live_t_s"], input="s\n")
 
-        # User declined overwrite — exit code 0 or 1 are acceptable
-        assert result.exit_code in (0, 1)
+        assert result.exit_code == 0
         # File should still have the original content
         assert "existing" in (tmp_path / ".agentmesh.yaml").read_text()
 
